@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize Express app
-const app = express();
+export const app = express();
 const server = http.createServer(app);
 
 // Setup Socket.io
@@ -69,7 +69,20 @@ app.use('/api/admin', adminRoutes);
 // Socket.io events
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
-  
+
+  socket.on('join_chat', (chatId) => {
+    if (chatId) {
+      socket.join(chatId);
+      console.log(`Socket ${socket.id} joined chat room: ${chatId}`);
+    }
+  });
+
+  socket.on('leave_chat', (chatId) => {
+    if (chatId) {
+      socket.leave(chatId);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
@@ -80,8 +93,21 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'EasyGo API is running smoothly' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const startServer = (port) => {
+  server.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
+};
+
+server.on('error', (err) => {
+  if ((err.code === 'EACCES' || err.code === 'EADDRINUSE') && PORT === 5000) {
+    console.log(`Port 5000 unavailable (${err.code}). Trying fallback port 5001...`);
+    startServer(5001);
+  } else {
+    console.error('Server listen error:', err);
+  }
 });
+
+startServer(PORT);

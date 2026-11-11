@@ -26,6 +26,7 @@ function App() {
           <Route path="org-dashboard" element={<OrganizationDashboard />} />
           <Route path="list" element={<OrganizationDashboard />} />
           <Route path="admin" element={<AdminDashboard />} />
+          <Route path="messages" element={<MessagesPage />} />
           <Route path="messages/:bookingId" element={<MessagesPage />} />
           <Route path="book/:vehicleId" element={<BookingPage />} />
           <Route path="contact" element={<StaticPage slug="contact" />} />

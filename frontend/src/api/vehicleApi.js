@@ -31,10 +31,7 @@ export const useCreateVehicle = () => {
 
   return useMutation({
     mutationFn: async (vehicleData) => {
-      // vehicleData should be FormData to support image uploads
-      const { data } = await api.post('/vehicles', vehicleData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await api.post('/vehicles', vehicleData);
       return data;
     },
     onSuccess: () => {

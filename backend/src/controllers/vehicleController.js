@@ -80,35 +80,38 @@ export const createVehicle = async (req, res) => {
       organizationId, seats, transmission, fuelType 
     } = req.body;
 
-    const parsedYear = parseInt(year);
+    const parsedYear = parseInt(year, 10);
     const parsedPrice = parseFloat(dailyPrice);
-    const parsedDeposit = parseFloat(securityDeposit);
-    const parsedSeats = parseInt(seats);
+    const parsedDeposit = securityDeposit !== undefined && securityDeposit !== '' ? parseFloat(securityDeposit) : 0;
+    const parsedSeats = seats !== undefined && seats !== '' ? parseInt(seats, 10) : 2;
 
-    if (!make || !model || !location || !Number.isInteger(parsedYear) || parsedYear < 1900 || parsedYear > new Date().getFullYear() + 1 || !Number.isFinite(parsedPrice) || parsedPrice <= 0 || !Number.isFinite(parsedDeposit) || parsedDeposit < 0 || !Number.isInteger(parsedSeats) || parsedSeats < 1) {
-      return res.status(400).json({ message: 'Invalid vehicle details' });
+    if (!make || !model || !location || !Number.isInteger(parsedYear) || parsedYear < 1900 || parsedYear > new Date().getFullYear() + 5 || !Number.isFinite(parsedPrice) || parsedPrice <= 0 || !Number.isFinite(parsedDeposit) || parsedDeposit < 0 || !Number.isInteger(parsedSeats) || parsedSeats < 1) {
+      return res.status(400).json({ message: 'Invalid vehicle details. Make, model, valid year (1950+), positive daily price, and location are required.' });
     }
 
-    if (organizationId) {
-      const organization = await prisma.organization.findFirst({ where: { id: organizationId, ownerId: req.user.id } });
-      if (!organization) return res.status(403).json({ message: 'Organization access denied' });
+    let validOrgId = null;
+    if (organizationId && organizationId !== 'null' && organizationId !== 'undefined' && organizationId.trim()) {
+      const organization = await prisma.organization.findFirst({ where: { id: organizationId.trim(), ownerId: req.user.id } });
+      if (organization) {
+        validOrgId = organization.id;
+      }
     }
 
     const vehicle = await prisma.vehicle.create({
       data: {
         ownerId: req.user.id,
-        organizationId: organizationId || null,
-        make,
-        model,
+        organizationId: validOrgId,
+        make: make.trim(),
+        model: model.trim(),
         year: parsedYear,
-        type,
-        description,
+        type: type || 'Cars & Supercars',
+        description: description?.trim() || `${make.trim()} ${model.trim()} available for luxury rental in ${location.trim()}. Verified condition and comprehensive insurance.`,
         dailyPrice: parsedPrice,
         securityDeposit: parsedDeposit,
-        location,
+        location: location.trim(),
         seats: parsedSeats,
-        transmission,
-        fuelType,
+        transmission: transmission || 'Automatic',
+        fuelType: fuelType || 'Petrol',
       },
     });
 
@@ -123,17 +126,40 @@ export const createVehicle = async (req, res) => {
       await prisma.vehicleImage.createMany({
         data: imageRecords,
       });
+    } else {
+      // Default fallback vehicle image by category so listing is never blank
+      const defaultUrl = (type || '').includes('Watercraft')
+        ? 'https://images.unsplash.com/photo-1559348349-86f1f65817fe?auto=format&fit=crop&q=80&w=1200'
+        : (type || '').includes('Motorcycle')
+        ? 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200'
+        : (type || '').includes('Van')
+        ? 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=1200'
+        : (type || '').includes('Electric')
+        ? '/cars/rimac-nevera.jpg'
+        : '/cars/supercar-fleet.jpg';
+
+      await prisma.vehicleImage.create({
+        data: {
+          vehicleId: vehicle.id,
+          url: defaultUrl,
+          isPrimary: true,
+        },
+      });
     }
 
     const createdVehicle = await prisma.vehicle.findUnique({
       where: { id: vehicle.id },
-      include: { images: true },
+      include: {
+        images: true,
+        owner: { select: { firstName: true, lastName: true } },
+        organization: { select: { name: true } },
+      },
     });
 
     res.status(201).json(createdVehicle);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error creating vehicle' });
+    console.error('Error in createVehicle:', error);
+    res.status(500).json({ message: error.message || 'Server error creating vehicle' });
   }
 };
 

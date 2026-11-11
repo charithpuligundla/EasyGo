@@ -27,17 +27,14 @@ const storage = multer.diskStorage({
 });
 
 const checkFileType = (file, cb) => {
-  const allowedTypes = new Map([
-    ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.png', 'image/png'],
-    ['.webp', 'image/webp'], ['.pdf', 'application/pdf'],
-  ]);
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.pdf'];
   const extension = path.extname(file.originalname).toLowerCase();
-  const mimetype = allowedTypes.get(extension) === file.mimetype;
+  const isImageOrPdf = file.mimetype?.startsWith('image/') || file.mimetype === 'application/pdf';
 
-  if (mimetype) {
+  if (allowedExtensions.includes(extension) || isImageOrPdf) {
     return cb(null, true);
   } else {
-    cb('Images and PDFs only!');
+    cb(new Error('Images (JPG, PNG, WEBP, AVIF) and PDFs only!'));
   }
 };
 

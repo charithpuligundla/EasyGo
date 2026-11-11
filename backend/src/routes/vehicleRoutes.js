@@ -5,9 +5,19 @@ import { upload } from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
+const handleVehicleUpload = (req, res, next) => {
+  upload.array('vehicleImages', 10)(req, res, (err) => {
+    if (err) {
+      console.error('Vehicle image upload error:', err);
+      return res.status(400).json({ message: typeof err === 'string' ? err : err.message || 'File upload error' });
+    }
+    next();
+  });
+};
+
 router.get('/', getVehicles);
 router.get('/:id', getVehicleById);
-router.post('/', protect, upload.array('vehicleImages', 10), createVehicle);
+router.post('/', protect, handleVehicleUpload, createVehicle);
 router.put('/:id', protect, updateVehicle);
 router.delete('/:id', protect, deleteVehicle);
 
