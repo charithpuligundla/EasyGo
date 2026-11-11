@@ -1,0 +1,360 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  password              String
+  firstName             String?
+  lastName              String?
+  phone                 String?
+  role                  String                 @default("CUSTOMER")
+  avatar                String?
+  isVerified            Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  vehicles              Vehicle[]              @relation("OwnerVehicles")
+  bookings              Booking[]              @relation("CustomerBookings")
+  reviewsGiven          Review[]               @relation("UserReviewsGiven")
+  reviewsReceived       Review[]               @relation("OwnerReviewsReceived")
+  favorites             Favorite[]
+  messagesSent          Message[]              @relation("SentMessages")
+  messagesReceived      Message[]              @relation("ReceivedMessages")
+  walletTransactions    WalletTransaction[]
+  supportTickets        SupportTicket[]
+  verificationDocs      VerificationDocument[]
+  employeeProfile       Employee?              @relation("UserEmployee")
+  ownedOrganizations    Organization[]         @relation("OrganizationOwner")
+  notifications         Notification[]
+}
+
+model Organization {
+  id              String                 @id @default(uuid())
+  name            String
+  logo            String?
+  businessRegNo   String?
+  gstNumber       String?
+  ownerId         String
+  owner           User                   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  isVerified      Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  vehicles        Vehicle[]              @relation("OrganizationVehicles")
+  branches        Branch[]
+  employees       Employee[]
+  reviewsReceived Review[]               @relation("OrganizationReviewsReceived")
+}
+
+model Branch {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  address         String
+  city            String
+  state           String
+  zipCode         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Employee {
+  id              String       @id @default(uuid())
+  userId          String       @unique
+  user            User         @relation("UserEmployee", fields: [userId], references: [id])
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  role            String       // e.g. "MANAGER", "STAFF"
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Vehicle {
+  id                  String       @id @default(uuid())
+  ownerId             String?
+  owner               User?        @relation("OwnerVehicles", fields: [ownerId], references: [id])
+  organizationId      String?
+  organization        Organization? @relation("OrganizationVehicles", fields: [organizationId], references: [id])
+  
+  make                String
+  model               String
+  year                Int
+  type                String       // e.g. "Cars", "SUV", "Electric Cars"
+  description         String
+  dailyPrice          Float
+  weeklyPrice         Float?
+  monthlyPrice        Float?
+  hourlyPrice         Float?
+  securityDeposit     Float
+  mileage             String?
+  fuelType            String?
+  transmission        String?
+  seats               Int?
+  ac                  Boolean      @default(true)
+  gps                 Boolean      @default(false)
+  bluetooth           Boolean      @default(false)
+  location            String
+  latitude            Float?
+  longitude           Float?
+  isVerified          Boolean      @default(false)
+  rentalRules         String?
+  cancellationPolicy  String?
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  images              VehicleImage[]
+  bookings            Booking[]
+  reviews             Review[]
+  favorites           Favorite[]
+  availability        VehicleAvailability[]
+  rentalHistory       RentalHistory[]
+}
+
+model VehicleImage {
+  id        String   @id @default(uuid())
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  url       String
+  isPrimary Boolean  @default(false)
+}
+
+model Booking {
+  id                  String       @id @default(uuid())
+  customerId          String
+  customer            User         @relation("CustomerBookings", fields: [customerId], references: [id])
+  vehicleId           String
+  vehicle             Vehicle      @relation(fields: [vehicleId], references: [id])
+  
+  startDate           DateTime
+  endDate             DateTime
+  pickupLocation      String
+  dropLocation        String
+  
+  status              String        @default("PENDING")
+  totalAmount         Float
+  securityDeposit     Float
+  rentalCharges       Float
+  lateFee             Float        @default(0)
+  damageCharges       Float        @default(0)
+  
+  accessories         String?      // Stored as JSON string
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  payment             Payment?
+  rentalHistory       RentalHistory?
+  chat                Chat?
+}
+
+model Payment {
+  id                  String       @id @default(uuid())
+  bookingId           String       @unique
+  booking             Booking      @relation(fields: [bookingId], references: [id])
+  
+  amount              Float
+  status              String        @default("PENDING")
+  paymentMethod       String       @default("OFFLINE") // OFFLINE
+  adminVerified       Boolean      @default(false)
+  ownerVerified       Boolean      @default(false)
+  customerConfirmed   Boolean      @default(false)
+  
+  receiptUrl          String?
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model Review {
+  id              String       @id @default(uuid())
+  rating          Int
+  comment         String?
+  images          String?      // JSON string array
+  helpfulVotes    Int          @default(0)
+  
+  reviewerId      String
+  reviewer        User         @relation("UserReviewsGiven", fields: [reviewerId], references: [id])
+  
+  vehicleId       String?
+  vehicle         Vehicle?     @relation(fields: [vehicleId], references: [id])
+  
+  ownerId         String?
+  owner           User?        @relation("OwnerReviewsReceived", fields: [ownerId], references: [id])
+  
+  organizationId  String?
+  organization    Organization? @relation("OrganizationReviewsReceived", fields: [organizationId], references: [id])
+  
+  reply           String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Chat {
+  id              String       @id @default(uuid())
+  bookingId       String?      @unique
+  booking         Booking?     @relation(fields: [bookingId], references: [id])
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  messages        Message[]
+}
+
+model Message {
+  id              String       @id @default(uuid())
+  chatId          String
+  chat            Chat         @relation(fields: [chatId], references: [id])
+  
+  senderId        String
+  sender          User         @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId      String
+  receiver        User         @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  content         String
+  imageUrl        String?
+  isRead          Boolean      @default(false)
+  
+  createdAt       DateTime     @default(now())
+}
+
+model Notification {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  title           String
+  message         String
+  type            String       // e.g. "BOOKING", "MESSAGE", "SYSTEM"
+  isRead          Boolean      @default(false)
+  
+  createdAt       DateTime     @default(now())
+}
+
+model Coupon {
+  id              String       @id @default(uuid())
+  code            String       @unique
+  discountPercent Float
+  maxDiscount     Float?
+  validUntil      DateTime
+  isActive        Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+}
+
+model WalletTransaction {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  amount          Float
+  type            String       // "CREDIT" or "DEBIT"
+  description     String
+  
+  createdAt       DateTime     @default(now())
+}
+
+model SupportTicket {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  subject         String
+  description     String
+  status          String       @default("OPEN")
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model VerificationDocument {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  type            String       // e.g. "ID_CARD", "DRIVING_LICENSE", "INSURANCE"
+  url             String
+  status          String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Favorite {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  vehicleId       String
+  vehicle         Vehicle      @relation(fields: [vehicleId], references: [id])
+  
+  createdAt       DateTime     @default(now())
+
+  @@unique([userId, vehicleId])
+}
+
+model VehicleAvailability {
+  id              String       @id @default(uuid())
+  vehicleId       String
+  vehicle         Vehicle      @relation(fields: [vehicleId], references: [id])
+  
+  startDate       DateTime
+  endDate         DateTime
+  isAvailable     Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model RentalHistory {
+  id              String       @id @default(uuid())
+  vehicleId       String
+  vehicle         Vehicle      @relation(fields: [vehicleId], references: [id])
+  
+  bookingId       String       @unique
+  booking         Booking      @relation(fields: [bookingId], references: [id])
+  
+  completedAt     DateTime     @default(now())
+  totalEarned     Float
+}
+
+model AuditLog {
+  id              String       @id @default(uuid())
+  action          String
+  userId          String?
+  details         String
+  
+  createdAt       DateTime     @default(now())
+}
+
+model Analytics {
+  id              String       @id @default(uuid())
+  date            DateTime     @unique
+  totalUsers      Int          @default(0)
+  totalBookings   Int          @default(0)
+  totalRevenue    Float        @default(0)
+  
+  createdAt       DateTime     @default(now())
+}
+
+model Setting {
+  id              String       @id @default(uuid())
+  key             String       @unique
+  value           String
+  
+  updatedAt       DateTime     @updatedAt
+}
+
+// Enums replaced with Strings for SQLite compatibility
+// Role: CUSTOMER, OWNER, ORGANIZATION, ADMIN
+// BookingStatus: PENDING, APPROVED, REJECTED, COMPLETED, CANCELLED
+// PaymentStatus: PENDING, PAID_OFFLINE, REFUND_PENDING, REFUND_COMPLETED
